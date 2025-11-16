@@ -44,6 +44,10 @@ RUN echo "Unzipping main zip file..." \
     && echo "Data extraction complete."
 # --- End of Your Original Data ---
 
+# Copy manually-downloaded November 2025 data <<<
+# Assuming data_nov2025/ is in the same directory as Dockerfile
+COPY data_nov2025 /app/data/data_nov2025
+
 
 # --- Weather Download Removed ---
 # We no longer download a static weather.json file here.
