@@ -208,3 +208,7 @@ __marimo__/
 
 # Large dataset
 output/
+models/
+temperature/
+*.pkl
+*.csv

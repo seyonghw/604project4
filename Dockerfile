@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     tar \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a conda environment and install all packages in one go.
@@ -56,6 +57,9 @@ COPY data_nov2025 /app/data/data_nov2025
 
 # Copy the Python script into the container's working directory
 COPY load_data.py .
+COPY fitting.py .
+COPY prediction.py .
+COPY Makefile .
 
 # Set the default command to run when the container starts
 # Use the "shell" form (no []) so it respects the SHELL directive above

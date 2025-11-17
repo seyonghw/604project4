@@ -47,7 +47,7 @@ def main():
     df["HDH"] = (Tbase - temp).clip(lower=0)
 
     # Restrict to data from 2023 onward
-    df = df[df["datetime_beginning_ept"].dt.year >= 2023].copy()
+    df = df[df["datetime_beginning_ept"].dt.year >= 2025].copy()
     if df.empty:
         raise ValueError("No data from 2023 onward found in merged_all_years.csv.")
 

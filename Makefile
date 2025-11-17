@@ -1,19 +1,20 @@
-# Default target runs full analysis (placeholder for now)
-.PHONY: all
-all: 
-	@echo "Running full analysis (placeholder)."
+# Makefile
 
-# Print today's predictions (single CSV line) and exit
-.PHONY: predictions
-predictions:
-	@python3 scripts/predict.py
+.PHONY: all rawdata predictions clean
 
-# Re-download raw data (placeholder)
-.PHONY: rawdata
+# Default: run the SARIMAX fitting script
+all:
+	conda run -n pjm_env python -u fitting.py
+
+# Re-download + re-merge raw data
 rawdata:
-	@echo "Re-downloading raw data (placeholder)."
+	conda run -n pjm_env python -u load_data.py
 
-# Clean everything except code + raw data
-.PHONY: clean
+# Print today's predictions
+predictions:
+	conda run -n pjm_env python prediction.py
+
+# Clean fitted models and merged output
 clean:
-	@echo "Cleaning intermediate files (placeholder)."
+	rm -rf models
+	rm -f output/merged_all_years.csv
