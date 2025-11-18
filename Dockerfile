@@ -48,6 +48,9 @@ RUN echo "Unzipping main zip file..." \
 # Copy manually-downloaded November 2025 data <<<
 # Assuming data_nov2025/ is in the same directory as Dockerfile
 COPY data_nov2025 /app/data/data_nov2025
+#COPY output /app/output
+#COPY models /app/models
+#COPY temperature /app/temperature
 
 
 # --- Weather Download Removed ---

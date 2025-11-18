@@ -2,6 +2,7 @@
 
 import os
 import pandas as pd
+import numpy as np
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 def main():
@@ -100,9 +101,10 @@ def main():
             )
             results = model.fit(disp=False)
 
-            model_path = os.path.join(models_dir, f"sarimax_{zone}.pkl")
-            results.save(model_path)
-            print(f"  Saved model for {zone} to {model_path}")
+            ## Save ONLY the parameter vector for this zone
+            param_path = os.path.join(models_dir, f"{zone}_params.npy")
+            np.save(param_path, results.params.values)
+            print(f"  Saved parameter vector for {zone} to {param_path}")
         except Exception as e:
             print(f"  Error fitting {zone}: {e}")
 
