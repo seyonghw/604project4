@@ -59,7 +59,7 @@ def download_models_from_github():
     Repo: seyonghw/604project4
     Path: models/
     """
-    print("--- Downloading models from GitHub ---")
+    #print("--- Downloading models from GitHub ---")
     api_url = "https://api.github.com/repos/seyonghw/604project4/contents/models"
     
     if not os.path.exists(MODELS_DIR):
@@ -82,13 +82,13 @@ def download_models_from_github():
                 download_url = file_info['download_url']
                 local_path = os.path.join(MODELS_DIR, file_info['name'])
                 
-                print(f"  Downloading {file_info['name']}...")
+                #print(f"  Downloading {file_info['name']}...")
                 r = requests.get(download_url)
                 with open(local_path, 'wb') as f:
                     f.write(r.content)
                 count += 1
         
-        print(f"Successfully downloaded {count} model files to {MODELS_DIR}")
+        #print(f"Successfully downloaded {count} model files to {MODELS_DIR}")
 
     except Exception as e:
         print(f"Exception during model download: {e}")
@@ -300,7 +300,7 @@ def main():
 
     all_zone_daily_loads = []
     all_zone_peak_hours = []
-    all_zone_peak_days = []
+    all_zone_top_two_days = []
 
     # Define the reference date here (November 11, 2025)
     reference_date = datetime(2025, 11, 17).date()
@@ -319,7 +319,6 @@ def main():
         if weather_df is None or weather_df.empty:
             all_zone_daily_loads.append([-1]*24)
             all_zone_peak_hours.append(-1)
-            all_zone_peak_days.append(-1)
             continue
 
         params = np.load(param_path)
@@ -356,34 +355,32 @@ def main():
 
             forecast_res = results.get_forecast(steps=steps, exog=exog_future)
             mean_forecast = forecast_res.predicted_mean
-            print("mean_forecast", mean_forecast)
 
-            #last_24 = np.asarray(mean_forecast[-24:])
             last_24 = mean_forecast.iloc[-(24*10):-(24*9)]
-            print("last_24", last_24)
+            #print("last_24", last_24)
             daily_loads_int = np.rint(last_24).astype(int).tolist()
             all_zone_daily_loads.append(daily_loads_int)
             peak_hour = int(last_24.argmax())
             all_zone_peak_hours.append(peak_hour)
 
-            last_240 = mean_forecast.iloc[-240:] 
-            daily_matrix = last_240.reshape(10, 24)
-            daily_avg = daily_matrix.mean(axis=1)   
-            top2_idx = np.argsort(daily_avg)[-2:]   
-            is_first_in_top2 = int(0 in top2_idx)
-            all_zone_peak_days.append(is_first_in_top2)
+            top_two = np.zeros(10)
+            daily_mean = mean_forecast.values.reshape(-1, 24).mean(axis=-1)[-10:]
+            top_two[np.argsort(daily_mean)[::-1][:2]] = 1
+            all_zone_top_two_days.append(top_two[0])
+
         except Exception:
             all_zone_daily_loads.append([-1]*24)
             all_zone_peak_hours.append(-1)
-            all_zone_peak_days.append(-1)
+            all_zone_top_two_days.append(-1)
 
     fields = []
-    fields.append(f'"{today_str}"')
+    next_day_str = (datetime.strptime(today_str, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    fields.append(f'"{next_day_str}"')
     for loads in all_zone_daily_loads:
         fields.extend(str(int(x)) for x in loads)
     for ph in all_zone_peak_hours:
         fields.append(str(int(ph)))
-    for pd in all_zone_peak_days:
+    for pd in all_zone_top_two_days:
         fields.append(str(int(pd)))
 
     print(",".join(fields))
