@@ -136,7 +136,7 @@ def fetch_live_weather_for_zone(zone, reference_date=None):
         
         # Formula: 2 + (current - reference)
         # Ensure we don't send negative days to API if reference is in future
-        past_days = max(2, 2 + days_diff)
+        past_days = max(0, days_diff)
 
     params = {
         "latitude": info["lat"],
@@ -260,7 +260,7 @@ def prepare_training_data():
 
     return df, exog_cols
 
-def build_exog_from_weather(weather_df):
+def build_exog_from_weather(weather_df, today_local):
     """
     Given a per-zone live weather DataFrame for 'today' (24 hours),
     build the 96-step exogenous matrix needed for the SARIMAX forecast.
@@ -268,21 +268,17 @@ def build_exog_from_weather(weather_df):
     if "time" in weather_df.columns:
         weather_df["time"] = pd.to_datetime(weather_df["time"])
         weather_df = weather_df.sort_values("time").reset_index(drop=True)
-    print(weather_df.head())
     temps = weather_df["temp_at_time_t"].to_numpy().T.flatten()
-    print(temps[0:10])
     df_temp = pd.DataFrame({"temp": temps})
-    df_temp["datetime"] = weather_df["time"]
-    df_temp["CDH"] = (df_temp["temp"] - TBASE).clip(lower=0)
-    df_temp["HDH"] = (TBASE - df_temp["temp"]).clip(lower=0)
+    df_temp["datetime"] = weather_df.index
+    df_temp["CDH"] = (df_temp["temp"] - TBASE).clip(lower=0).values
+    df_temp["HDH"] = (TBASE - df_temp["temp"]).clip(lower=0).values
     df_temp["dow"] = df_temp["datetime"].dt.dayofweek
     df_temp = pd.get_dummies(df_temp, columns=["dow"], prefix="dow", dtype=float, drop_first=True)
-    print(df_temp.head())
     exog_cols = ["CDH", "HDH", "dow_1", "dow_2", "dow_3", "dow_4", "dow_5", "dow_6"]
     for col in exog_cols:
         if col not in df_temp.columns:
             df_temp[col] = 0.0
-    print(df_temp.head())
     return df_temp[exog_cols]
 
 
@@ -304,9 +300,10 @@ def main():
 
     all_zone_daily_loads = []
     all_zone_peak_hours = []
+    all_zone_peak_days = []
 
     # Define the reference date here (November 11, 2025)
-    reference_date = datetime(2025, 11, 19).date()
+    reference_date = datetime(2025, 11, 17).date()
 
     for zone in zones:
         param_path = os.path.join(MODELS_DIR, f"{zone}_params.npy")
@@ -322,6 +319,7 @@ def main():
         if weather_df is None or weather_df.empty:
             all_zone_daily_loads.append([-1]*24)
             all_zone_peak_hours.append(-1)
+            all_zone_peak_days.append(-1)
             continue
 
         params = np.load(param_path)
@@ -351,24 +349,33 @@ def main():
                 enforce_invertibility=False,
             )
             results = model.filter(params)
-            exog_future = build_exog_from_weather(weather_df)
+            exog_future = build_exog_from_weather(weather_df, now_local)
             
             exog_future = exog_future[exog_cols]
             steps = len(exog_future)
 
             forecast_res = results.get_forecast(steps=steps, exog=exog_future)
             mean_forecast = forecast_res.predicted_mean
-            print(mean_forecast)
+            print("mean_forecast", mean_forecast)
 
-
-            last_24 = np.asarray(mean_forecast[-24:])
+            #last_24 = np.asarray(mean_forecast[-24:])
+            last_24 = mean_forecast.iloc[-(24*10):-(24*9)]
+            print("last_24", last_24)
             daily_loads_int = np.rint(last_24).astype(int).tolist()
             all_zone_daily_loads.append(daily_loads_int)
             peak_hour = int(last_24.argmax())
             all_zone_peak_hours.append(peak_hour)
+
+            last_240 = mean_forecast.iloc[-240:] 
+            daily_matrix = last_240.reshape(10, 24)
+            daily_avg = daily_matrix.mean(axis=1)   
+            top2_idx = np.argsort(daily_avg)[-2:]   
+            is_first_in_top2 = int(0 in top2_idx)
+            all_zone_peak_days.append(is_first_in_top2)
         except Exception:
             all_zone_daily_loads.append([-1]*24)
             all_zone_peak_hours.append(-1)
+            all_zone_peak_days.append(-1)
 
     fields = []
     fields.append(f'"{today_str}"')
@@ -376,6 +383,8 @@ def main():
         fields.extend(str(int(x)) for x in loads)
     for ph in all_zone_peak_hours:
         fields.append(str(int(ph)))
+    for pd in all_zone_peak_days:
+        fields.append(str(int(pd)))
 
     print(",".join(fields))
 
