@@ -60,10 +60,11 @@ COPY data_nov2025 /app/data/data_nov2025
 
 # Copy the Python script into the container's working directory
 COPY load_data.py .
+RUN python load_data.py
 COPY fitting.py .
 COPY prediction.py .
 COPY Makefile .
 
 # Set the default command to run when the container starts
 # Use the "shell" form (no []) so it respects the SHELL directive above
-CMD python load_data.py
+CMD python prediction.py
